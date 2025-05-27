@@ -1,0 +1,305 @@
+{% extends "base.html" %} {% block title %}Home{% endblock %} {% block content
+%}
+<div class="main-layout">
+  <button id="toggle-history" class="toggle-history-button">
+    <span class="toggle-icon">&#9776;</span>
+    <span class="button-text">View History</span>
+  </button>
+  <div class="content-area">
+    <div class="container">
+      <h1>Welcome to Leaf Prediction</h1>
+      <p>Upload a leaf image to get started with prediction.</p>
+
+      <div class="upload-section">
+        <form id="prediction-form" enctype="multipart/form-data">
+          <div class="preview-container" style="display: none">
+            <img id="image-preview" src="#" alt="Image preview" />
+          </div>
+          <input
+            type="file"
+            name="file"
+            accept="image/*"
+            required
+            id="file-input"
+          />
+          <button type="submit">
+            <span class="button-text">Predict</span>
+            <div class="loading-spinner" style="display: none">
+              <div class="spinner"></div>
+            </div>
+          </button>
+        </form>
+      </div>
+
+      <div id="result-section" class="result-section" style="display: none">
+        <h2>Prediction Result</h2>
+        <div class="result-content">
+          <p>Leaf Type: <span id="prediction-label"></span></p>
+          <p>Confidence: <span id="prediction-confidence"></span></p>
+          <div class="treatment-info">
+            <h3>Recommendation for Treatment</h3>
+            <div id="treatment-text"></div>
+          </div>
+        </div>
+        <div class="refresh-section">
+          <button id="refresh-btn" class="refresh-button">
+            <span class="refresh-icon">↻</span>
+            Refresh
+          </button>
+        </div>
+      </div>
+
+      <div id="error-message" class="error-message" style="display: none"></div>
+    </div>
+  </div>
+
+  {% if predictions %}
+  <div class="history-sidebar" id="history-sidebar" style="display: none">
+    <div class="history-header">
+      <h2>Prediction History</h2>
+    </div>
+    <div class="predictions-list" id="predictions-list">
+      {% for prediction in predictions %}
+      <div class="prediction-item">
+        <div class="prediction-details">
+          <p class="prediction-label">
+            Leaf Type: <span>{{ prediction.predicted_label }}</span>
+          </p>
+          <p class="prediction-confidence">
+            Confidence:
+            <span>{{ "%.2f"|format(prediction.confidence * 100) }}%</span>
+          </p>
+          <p class="prediction-time">
+            Time: <span>{{ prediction.timestamp }}</span>
+          </p>
+        </div>
+        <div class="prediction-treatment">
+          <p>Treatment: <span>{{ prediction.treatment | safe }}</span></p>
+        </div>
+      </div>
+      {% endfor %}
+    </div>
+
+    {% if total_pages > 1 %}
+    <div class="pagination">
+      <div class="pagination-info">
+        Page <span id="current-page">{{ current_page }}</span> of
+        <span id="total-pages">{{ total_pages }}</span> (<span id="total-items"
+          >{{ total_items }}</span
+        >
+        total predictions)
+      </div>
+      <div class="pagination-controls" id="pagination-controls">
+        {% if has_prev %}
+        <a
+          href="javascript:void(0)"
+          class="page-link"
+          data-page="{{ current_page-1 }}"
+          >&laquo; Previous</a
+        >
+        {% endif %} {% for page_num in range(1, total_pages + 1) %} {% if
+        page_num == current_page %}
+        <span class="page-link active">{{ page_num }}</span>
+        {% else %}
+        <a
+          href="javascript:void(0)"
+          class="page-link"
+          data-page="{{ page_num }}"
+          >{{ page_num }}</a
+        >
+        {% endif %} {% endfor %} {% if has_next %}
+        <a
+          href="javascript:void(0)"
+          class="page-link"
+          data-page="{{ current_page+1 }}"
+          >Next &raquo;</a
+        >
+        {% endif %}
+      </div>
+    </div>
+    {% endif %}
+  </div>
+  {% endif %}
+</div>
+{% endblock %} {% block scripts %}
+<script>
+  document.addEventListener("DOMContentLoaded", function () {
+    const form = document.getElementById("prediction-form");
+    const fileInput = document.getElementById("file-input");
+    const preview = document.getElementById("image-preview");
+    const previewContainer = document.querySelector(".preview-container");
+    const resultSection = document.getElementById("result-section");
+    const predictionLabel = document.getElementById("prediction-label");
+    const predictionConfidence = document.getElementById(
+      "prediction-confidence"
+    );
+    const errorMessage = document.getElementById("error-message");
+    const submitButton = form.querySelector('button[type="submit"]');
+    const buttonText = submitButton.querySelector(".button-text");
+    const loadingSpinner = submitButton.querySelector(".loading-spinner");
+    const refreshButton = document.getElementById("refresh-btn");
+    const predictionsList = document.getElementById("predictions-list");
+    const paginationControls = document.getElementById("pagination-controls");
+
+    // Add toggle history functionality
+    const toggleHistoryBtn = document.getElementById("toggle-history");
+    const historySidebar = document.getElementById("history-sidebar");
+
+    if (toggleHistoryBtn && historySidebar) {
+      toggleHistoryBtn.addEventListener("click", function () {
+        const isVisible = historySidebar.style.display !== "none";
+        historySidebar.style.display = isVisible ? "none" : "flex";
+        const buttonText = toggleHistoryBtn.querySelector(".button-text");
+        buttonText.textContent = isVisible ? "View History" : "Hide History";
+      });
+    }
+
+    fileInput.addEventListener("change", function () {
+      const file = this.files[0];
+      if (file) {
+        const reader = new FileReader();
+        reader.onload = function (e) {
+          preview.src = e.target.result;
+          previewContainer.style.display = "block";
+        };
+        reader.readAsDataURL(file);
+      }
+    });
+
+    async function fetchPredictions(page = 1) {
+      try {
+        const response = await fetch(`/predictions?page=${page}`);
+        const data = await response.json();
+
+        let predictionsHtml = "";
+        data.predictions.forEach((prediction) => {
+          const timestamp = new Date(prediction.timestamp).toLocaleString();
+          predictionsHtml += `
+            <div class="prediction-item">
+              <div class="prediction-details">
+                <p class="prediction-label">Leaf Type: <span>${
+                  prediction.predicted_label
+                }</span></p>
+                <p class="prediction-confidence">Confidence: <span>${(
+                  prediction.confidence * 100
+                ).toFixed(2)}%</span></p>
+                <p class="prediction-time">Time: <span>${timestamp}</span></p>
+              </div>
+              <div class="prediction-treatment">
+                <p>Treatment: <span>${
+                  prediction.treatment || "No treatment available"
+                }</span></p>
+              </div>
+            </div>
+          `;
+        });
+        predictionsList.innerHTML = predictionsHtml;
+
+        document.getElementById("current-page").textContent = data.current_page;
+        document.getElementById("total-pages").textContent = data.total_pages;
+        document.getElementById("total-items").textContent = data.total_items;
+
+        let paginationHtml = "";
+
+        if (data.has_prev) {
+          paginationHtml += `<a href="javascript:void(0)" class="page-link" data-page="${
+            data.current_page - 1
+          }">&laquo; Previous</a>`;
+        }
+
+        for (let i = 1; i <= data.total_pages; i++) {
+          if (i === data.current_page) {
+            paginationHtml += `<span class="page-link active">${i}</span>`;
+          } else {
+            paginationHtml += `<a href="javascript:void(0)" class="page-link" data-page="${i}">${i}</a>`;
+          }
+        }
+
+        if (data.has_next) {
+          paginationHtml += `<a href="javascript:void(0)" class="page-link" data-page="${
+            data.current_page + 1
+          }">Next &raquo;</a>`;
+        }
+
+        paginationControls.innerHTML = paginationHtml;
+
+        const pageLinks = paginationControls.querySelectorAll("a.page-link");
+        pageLinks.forEach((link) => {
+          link.addEventListener("click", function (e) {
+            e.preventDefault();
+            const pageNum = parseInt(this.getAttribute("data-page"));
+            fetchPredictions(pageNum);
+          });
+        });
+      } catch (error) {
+        console.error("Error fetching predictions:", error);
+      }
+    }
+
+    if (paginationControls) {
+      const pageLinks = paginationControls.querySelectorAll("a.page-link");
+      pageLinks.forEach((link) => {
+        link.addEventListener("click", function (e) {
+          e.preventDefault();
+          const pageNum = parseInt(this.getAttribute("data-page"));
+          fetchPredictions(pageNum);
+        });
+      });
+    }
+
+    form.addEventListener("submit", async function (e) {
+      e.preventDefault();
+
+      buttonText.style.display = "none";
+      loadingSpinner.style.display = "block";
+      submitButton.disabled = true;
+      resultSection.style.display = "none";
+      errorMessage.style.display = "none";
+
+      const formData = new FormData(this);
+
+      try {
+        const response = await fetch("/", {
+          method: "POST",
+          body: formData,
+        });
+
+        const result = await response.json();
+
+        if (response.ok) {
+          predictionLabel.textContent = result.label;
+          predictionConfidence.textContent = result.confidence;
+          document.getElementById("treatment-text").innerHTML =
+            result.treatment;
+          resultSection.style.display = "block";
+          errorMessage.style.display = "none";
+
+          fetchPredictions(1);
+        } else {
+          errorMessage.textContent = result.error;
+          errorMessage.style.display = "block";
+          resultSection.style.display = "none";
+        }
+      } catch (error) {
+        errorMessage.textContent = "An error occurred during prediction.";
+        errorMessage.style.display = "block";
+        resultSection.style.display = "none";
+      } finally {
+        buttonText.style.display = "inline";
+        loadingSpinner.style.display = "none";
+        submitButton.disabled = false;
+      }
+    });
+
+    if (refreshButton) {
+      refreshButton.addEventListener("click", function () {
+        form.reset();
+        previewContainer.style.display = "none";
+        resultSection.style.display = "none";
+        errorMessage.style.display = "none";
+        fetchPredictions(1);
+      });
+    }
+  });
+</script>
+{% endblock %}
