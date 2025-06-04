@@ -30,10 +30,18 @@ Dataset PlantVillage Bộ dữ liệu chuẩn gồm 38 lớp bệnh lá với ~5
  5. Lưu dữ liệu: lưu ảnh, thời gian, kết quả chẩn đoán.
 
 📊 Kết quả thử nghiệm:
- • Tập dữ liệu: ~54.000 ảnh (38 lớp).
- • Huấn luyện: 70% train, 30% validation, 14 epoch.
- • Kết quả mô hình: Độ chính xác 90%, loss ~33%.
 
+
+ • Tập dữ liệu: ~54.000 ảnh (38 lớp).
+ 
+ 
+ 
+ • Huấn luyện: 70% train, 30% validation, 14 epoch.
+
+ 
+ 
+ 
+ • Kết quả mô hình: Độ chính xác 90%, loss ~33%.
 
  
 ![image](https://github.com/user-attachments/assets/5d7b2df5-63a0-4476-97ff-3b8c48329852)         
@@ -92,10 +100,25 @@ Dataset PlantVillage Bộ dữ liệu chuẩn gồm 38 lớp bệnh lá với ~5
 
 
 🚀 Mục tiêu mở rộng:
+ 
+ 
+ 
  • Tăng kích thước và tính đa dạng của tập dữ liệu thực tế.
+
+ 
+ 
  • Phát triển ứng dụng điện thoại tích hợp camera.
+ 
+ 
+ 
  • Cảnh báo sớm khi bệnh có dấu hiệu lây lan.
+
+ 
+ 
  • Gợi ý cách xử lý bằng thuốc phù hợp.
+
+ 
+ 
  • Tích hợp với drone hoặc cảm biến IoT để giám sát quy mô lớn.
 
 
